@@ -1,5 +1,7 @@
 # Fleet AI Assistant
 
+[![CI](https://github.com/Milenko98/fleet-ai-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/Milenko98/fleet-ai-assistant/actions/workflows/ci.yml)
+
 An AI agent for fleet management. Users ask questions in natural language, and the agent **decides on its own** which tools to call: queries over trips, fuel consumption and GPS alarms, or a search through internal company policies (RAG).
 
 > The UI, sample data and policy documents are in **Croatian**, because the app targets a Croatian fleet operator. The code and this README are in English.
@@ -9,7 +11,7 @@ An AI agent for fleet management. Users ask questions in natural language, and t
 - *Did the driver of truck ZG-5521-KM drive longer than allowed without a break in the last 14 days?* (combines a policy document with trip data)
 - *Compare the fuel consumption of ST-3307-DE over the last 2 weeks with the month before. Is the deviation within company rules?*
 
-**Stack:** Laravel 13 · PHP 8.4 · Vue 3 · Tailwind CSS 4 · PostgreSQL 17 + pgvector · Anthropic Claude API · Voyage AI embeddings · Docker
+**Stack:** Laravel 13 · PHP 8.5 · Vue 3 · Tailwind CSS 4 · PostgreSQL 17 + pgvector · Anthropic Claude API · Voyage AI embeddings · Docker
 
 ## What this project demonstrates
 
@@ -23,6 +25,7 @@ An AI agent for fleet management. Users ask questions in natural language, and t
 | Evaluation | `php artisan fleet:eval`: test set with ground truth computed from the database |
 | Guardrails | step limit, validation of every tool input, the model never writes SQL, similarity threshold |
 | Agent transparency | the UI shows every step: tool, model-generated input, output, duration |
+| Testing & CI | PHPUnit (agent loop tested against a fake Claude API), Vitest + Vue Test Utils, GitHub Actions |
 
 ## How the agent works
 
@@ -108,6 +111,29 @@ If you add `VOYAGE_API_KEY` later, re-index the documents so they get embeddings
 docker compose exec app php artisan docs:index database/docs --fresh
 ```
 
+## Tests
+
+```bash
+docker compose run --rm phpunit                         # backend: PHPUnit in its own container (test DB: fleet_test)
+docker compose run --rm phpunit --filter=FleetAgentTest
+docker compose run --rm vite npm test                    # frontend: Vitest + Vue Test Utils
+```
+
+- **Agent loop** is tested without a real API: `tests/Support/FakeClaude.php` plugs into the Anthropic SDK as a PSR-18 transport, returns scripted responses and records every request. The tests check that tool results go back with the right `tool_use_id`, that tool errors are flagged with `is_error`, and that the step limit, `refusal` and `max_tokens` are handled.
+- **Tools** are tested against seeded data, including input validation (bad dates, unknown vehicles, oversized ranges).
+- **UI components** are tested with Vitest: Markdown rendering and XSS sanitization, agent steps, sending the conversation history, error handling.
+
+## CI and branching
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main` and `testing` and on every pull request to `main`:
+
+| Job | Steps |
+|---|---|
+| Backend tests (PHPUnit) | builds the PHP image, `composer install`, runs PHPUnit in the `phpunit` container against PostgreSQL + pgvector |
+| Frontend build & tests (Vitest) | Node 26, `npm ci`, `vite build`, `vitest run` |
+
+Workflow: develop and push to `testing` → open a pull request `testing → main` → merge is **blocked** until both jobs pass (branch protection on `main`).
+
 ## Useful commands
 
 ```bash
@@ -163,6 +189,5 @@ The policy documents in `database/docs` are fictional examples. The driving-time
 
 - [ ] Streaming responses (show text while the model generates it)
 - [ ] Prompt caching for the system prompt and tool definitions (lower cost and latency)
-- [ ] PHPUnit tests for tools and the agent loop with a fake API client
 - [ ] LLM-as-judge grading for open-ended answers in `fleet:eval`
-- [ ] GitHub Actions (lint + tests)
+- [ ] Static analysis (Larastan) and linting (Pint, ESLint) in CI

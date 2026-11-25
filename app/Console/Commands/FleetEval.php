@@ -40,7 +40,7 @@ class FleetEval extends Command
         }
 
         $repeat = max(1, (int) $this->option('repeat'));
-        $runner = new EvalRunner(new FleetAgent);
+        $runner = new EvalRunner(app(FleetAgent::class));
         $results = [];
 
         $this->info(sprintf('Pokrećem %d slučajeva × %d (model: %s)', $cases->count(), $repeat, config('services.anthropic.model')));

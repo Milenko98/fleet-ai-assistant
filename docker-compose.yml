@@ -9,6 +9,7 @@ services:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U fleet -d fleet"]
       interval: 3s
@@ -26,8 +27,23 @@ services:
       db:
         condition: service_healthy
 
+  # Testovi: docker compose run --rm phpunit  (argumenti se dodaju, npr. --filter=FleetToolsTest)
+  phpunit:
+    build: docker/php
+    user: "${UID:-1000}:${GID:-1000}"
+    volumes:
+      - .:/app
+    environment:
+      DB_HOST: db
+      DB_DATABASE: fleet_test
+    entrypoint: ["php", "artisan", "test"]
+    profiles: ["test"]
+    depends_on:
+      db:
+        condition: service_healthy
+
   vite:
-    image: node:24-alpine
+    image: node:26-alpine
     user: "${UID:-1000}:${GID:-1000}"
     working_dir: /app
     volumes:

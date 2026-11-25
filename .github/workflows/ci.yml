@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests (PHPUnit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          echo "UID=$(id -u)" >> "$GITHUB_ENV"
+          echo "GID=$(id -g)" >> "$GITHUB_ENV"
+
+      # Isti phpunit kontejner kao lokalno (docker compose run --rm phpunit)
+      - name: Build PHP image
+        run: docker compose build phpunit
+
+      - name: Install Composer dependencies
+        run: docker compose run --rm --entrypoint composer phpunit install --no-interaction --prefer-dist --no-progress
+
+      - name: Generate app key
+        run: docker compose run --rm --entrypoint php phpunit artisan key:generate
+
+      - name: Run tests
+        run: docker compose run --rm phpunit
+
+  frontend:
+    name: Frontend build & tests (Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Tests
+        run: npm test
