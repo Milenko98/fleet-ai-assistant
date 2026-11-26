@@ -13,7 +13,7 @@ class FleetAsk extends Command
 
     public function handle(): int
     {
-        $result = (new FleetAgent)->run([['role' => 'user', 'content' => $this->argument('pitanje')]]);
+        $result = app(FleetAgent::class)->run([['role' => 'user', 'content' => $this->argument('pitanje')]]);
 
         foreach ($result['steps'] as $step) {
             $this->line(sprintf(

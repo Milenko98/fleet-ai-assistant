@@ -32,7 +32,7 @@ class ChatController extends Controller
         }
 
         try {
-            return response()->json((new FleetAgent)->run($messages));
+            return response()->json(app(FleetAgent::class)->run($messages));
         } catch (Throwable $e) {
             report($e);
 
